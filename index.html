@@ -124,16 +124,14 @@ header{display:flex;align-items:center;justify-content:space-between;padding:9px
   <div class="sc">
     <h2>Becker Schedule Builder</h2>
     <p>Connect your Forecaster sheet, restore a saved session, or try demo data.</p>
-    <div class="fi"><label>SHEET ID</label><input id="cs" placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms"></div>
-    <div class="fi"><label>TAB NAME (exact)</label><input id="ct" value="Sheet1"></div>
-    <div class="fi"><label>API KEY</label><input id="ck" type="password" placeholder="AIza..."></div>
+    <div class="fi"><label>SHEET ID</label><input id="cs" placeholder="1bthcKzqDhs9JgUjxrKux7HBXO898alNrtzSPAXzkiDo"></div>
+    <div class="fi"><label>TAB GID <span style="font-weight:400;opacity:.7">(number at end of URL after #gid=)</span></label><input id="ct" placeholder="67909363"></div>
     <div style="display:flex;gap:6px;margin-top:14px;flex-wrap:wrap">
       <button class="btn btn-p" onclick="connectSheet()">Connect sheet</button>
       <button class="btn" id="rb" style="display:none" onclick="restoreSession()">↩ Restore session</button>
       <button class="btn" onclick="loadDemo()">Load demo data</button>
     </div>
-    <div class="sn">Sheet must be <strong>"Anyone with link can view."</strong><br>
-    Need a key? <a href="https://console.cloud.google.com/apis/library/sheets.googleapis.com" target="_blank">Google Cloud → Sheets API → Credentials</a></div>
+    <div class="sn">Sheet must be shared as <strong>"Anyone with the link can view."</strong><br>No API key needed — just your Sheet ID and the GID from the URL.</div>
   </div>
 </div>
 
@@ -231,13 +229,37 @@ function parse(rows){
   return out;
 }
 
-/* ── SHEETS API ────────────────────────────────────── */
+/* ── CSV PARSER ────────────────────────────────────── */
+function parseCSVText(text){
+  const rows=[];
+  let row=[],field='',inQ=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(inQ){
+      if(c==='"'&&text[i+1]==='"'){field+='"';i++;}
+      else if(c==='"'){inQ=false;}
+      else field+=c;
+    } else {
+      if(c==='"'){inQ=true;}
+      else if(c===','){row.push(field);field='';}
+      else if(c==='\n'||c==='\r'){
+        row.push(field);field='';
+        if(row.some(f=>f.trim()))rows.push(row);
+        row=[];
+        if(c==='\r'&&text[i+1]==='\n')i++;
+      } else field+=c;
+    }
+  }
+  if(row.length){row.push(field);if(row.some(f=>f.trim()))rows.push(row);}
+  return rows;
+}
+
+/* ── SHEETS CONNECT ────────────────────────────────── */
 async function connectSheet(){
   const sid=document.getElementById('cs').value.trim();
-  const tab=document.getElementById('ct').value.trim()||'Sheet1';
-  const key=document.getElementById('ck').value.trim();
-  if(!sid||!key){toast('Enter Sheet ID and API key');return;}
-  cfg={sid,tab,key};
+  const gid=document.getElementById('ct').value.trim();
+  if(!sid){toast('Enter your Sheet ID');return;}
+  cfg={sid,gid};
   document.getElementById('setup').style.display='none';
   await reloadSheet();
 }
@@ -245,11 +267,14 @@ async function reloadSheet(){
   const btn=document.getElementById('rlb');
   btn.disabled=true;btn.innerHTML='<span class="sp"></span>';
   try{
-    const url=`https://sheets.googleapis.com/v4/spreadsheets/${cfg.sid}/values/${encodeURIComponent(cfg.tab)}?key=${cfg.key}`;
+    const gidParam=cfg.gid?`&gid=${cfg.gid}`:'';
+    const url=`https://docs.google.com/spreadsheets/d/${cfg.sid}/export?format=csv${gidParam}`;
     const r=await fetch(url);
-    if(!r.ok){const e=await r.json();throw new Error(e.error?.message||'Fetch failed');}
-    const data=await r.json();
-    tiles=parse(data.values||[]);
+    if(!r.ok)throw new Error(`HTTP ${r.status} — check Sheet ID and sharing settings`);
+    const text=await r.text();
+    if(text.includes('<!DOCTYPE')||text.includes('<html'))throw new Error('Sheet is not public — set sharing to "Anyone with the link can view"');
+    const rows=parseCSVText(text);
+    tiles=parse(rows);
     origs=tiles.map(t=>({...t}));
     clog=[];selIds.clear();
     initLeg();render();save();
