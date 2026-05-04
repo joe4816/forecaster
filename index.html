@@ -124,14 +124,13 @@ header{display:flex;align-items:center;justify-content:space-between;padding:9px
   <div class="sc">
     <h2>Becker Schedule Builder</h2>
     <p>Connect your Forecaster sheet, restore a saved session, or try demo data.</p>
-    <div class="fi"><label>SHEET ID</label><input id="cs" placeholder="1bthcKzqDhs9JgUjxrKux7HBXO898alNrtzSPAXzkiDo"></div>
-    <div class="fi"><label>TAB GID <span style="font-weight:400;opacity:.7">(number at end of URL after #gid=)</span></label><input id="ct" placeholder="67909363"></div>
+    <div class="fi"><label>PASTE YOUR GOOGLE SHEET URL</label><input id="cs" placeholder="https://docs.google.com/spreadsheets/d/…/edit?gid=…"></div>
     <div style="display:flex;gap:6px;margin-top:14px;flex-wrap:wrap">
       <button class="btn btn-p" onclick="connectSheet()">Connect sheet</button>
       <button class="btn" id="rb" style="display:none" onclick="restoreSession()">↩ Restore session</button>
       <button class="btn" onclick="loadDemo()">Load demo data</button>
     </div>
-    <div class="sn">Sheet must be shared as <strong>"Anyone with the link can view."</strong><br>No API key needed — just your Sheet ID and the GID from the URL.</div>
+    <div class="sn">Sheet must be shared as <strong>"Anyone with the link can view."</strong><br>Just paste the full URL — nothing else needed.</div>
   </div>
 </div>
 
@@ -256,9 +255,13 @@ function parseCSVText(text){
 
 /* ── SHEETS CONNECT ────────────────────────────────── */
 async function connectSheet(){
-  const sid=document.getElementById('cs').value.trim();
-  const gid=document.getElementById('ct').value.trim();
-  if(!sid){toast('Enter your Sheet ID');return;}
+  const raw=document.getElementById('cs').value.trim();
+  if(!raw){toast('Paste your Google Sheet URL');return;}
+  const sidMatch=raw.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  if(!sidMatch){toast('That doesn\'t look like a Google Sheet URL','err');return;}
+  const sid=sidMatch[1];
+  const gidMatch=raw.match(/[#&?]gid=(\d+)/);
+  const gid=gidMatch?gidMatch[1]:'';
   cfg={sid,gid};
   document.getElementById('setup').style.display='none';
   await reloadSheet();
