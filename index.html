@@ -51,8 +51,19 @@ header{display:flex;align-items:center;justify-content:space-between;padding:9px
 .ghf{color:var(--fc);border-bottom-color:var(--fbd)}
 .ghn{text-align:left;position:sticky;left:0;z-index:5;background:var(--sf)}
 /* teacher row */
-.gn{font-size:10px;color:var(--mu);padding:3px 7px;border-top:1px solid var(--bd);display:flex;align-items:flex-start;line-height:1.4;position:sticky;left:0;z-index:2;background:var(--sf);min-height:34px;word-break:break-word}
-.gn:hover{color:var(--tx)}
+.gn{font-size:10px;color:var(--mu);padding:3px 7px;border-top:1px solid var(--bd);display:flex;flex-direction:column;gap:1px;justify-content:center;line-height:1.4;position:sticky;left:0;z-index:2;background:var(--sf);min-height:34px;word-break:break-word}
+.gn:hover .gn-nm{color:var(--tx)}
+.gn-nm{font-size:10px;font-weight:500}
+.gn-meta{font-size:8.5px;opacity:.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* group headers */
+.grp-hdr{grid-column:1/-1;font-size:10px;font-weight:600;letter-spacing:.5px;padding:5px 10px;background:var(--sf2);color:var(--tx);border-top:2px solid var(--bd2);position:sticky;left:0;text-transform:uppercase}
+.grp-sub{grid-column:1/-1;font-size:9px;font-weight:500;letter-spacing:.4px;padding:3px 14px;background:var(--sf);color:var(--mu);border-top:1px solid var(--bd);position:sticky;left:0}
+/* sort buttons */
+.srt{display:flex;gap:3px;align-items:center;flex-shrink:0}
+.srt label{font-size:9px;color:var(--mu);margin-right:1px}
+.sb2{padding:2px 8px;border-radius:3px;font-size:9.5px;cursor:pointer;border:1px solid var(--bd2);background:transparent;color:var(--mu);font-family:'DM Mono',monospace;transition:all .15s;white-space:nowrap}
+.sb2:hover{color:var(--tx);border-color:var(--bd2)}
+.sb2.on{background:var(--sf2);color:var(--tx);border-color:var(--ac)}
 /* course cell */
 .gc{padding:2px;border-top:1px solid var(--bd);border-left:1px solid var(--bd);min-height:34px;display:flex;flex-direction:column;gap:2px;transition:background .1s;position:relative}
 .gcf{border-left:1px dashed var(--fbd);background:rgba(90,60,181,.05)}
@@ -69,6 +80,8 @@ header{display:flex;align-items:center;justify-content:space-between;padding:9px
 .tile.dr{opacity:.22}
 .tile.sel{outline:2px solid var(--sel);outline-offset:0}
 .tile.mv{outline:2px solid rgba(255,255,255,.3);outline-offset:0}
+.tile-cont{opacity:.45;cursor:default!important;border-style:dashed!important}
+.tile-cont .tn{font-weight:400!important}
 .tn{font-weight:500;word-break:break-word}
 .tm{font-size:8.5px;opacity:.65;display:flex;gap:3px;flex-wrap:wrap}
 /* log panel */
@@ -145,6 +158,14 @@ header{display:flex;align-items:center;justify-content:space-between;padding:9px
 
 <div id="tb">
   <input type="text" id="srch" placeholder="Filter teacher…">
+  <div class="srt">
+    <label>Sort:</label>
+    <button class="sb2 on" data-sort="grade-dept" onclick="setSort('grade-dept')">Grade/Dept</button>
+    <button class="sb2" data-sort="grade" onclick="setSort('grade')">Grade</button>
+    <button class="sb2" data-sort="dept" onclick="setSort('dept')">Dept</button>
+    <button class="sb2" data-sort="alpha" onclick="setSort('alpha')">Alpha</button>
+  </div>
+  <button class="sb2" id="s1btn" onclick="toggleS1()" title="Show Semester 1 sections only (odd section numbers)">S1 only</button>
   <div id="legbar"></div>
   <div id="stat"></div>
 </div>
@@ -188,6 +209,7 @@ const PL={F:'FLOAT',0:'P0',1:'P1',2:'P2',3:'P3',4:'P4',5:'P5',6:'P6',7:'P7'};
 let tiles=[], origs=[], clog=[], selIds=new Set();
 let filterT='', filterD='', cfg={};
 let dragId=null, dragGroup=false, logSeq=0;
+let sortMode='grade-dept', filterS1=false;
 
 /* ── PARSE ─────────────────────────────────────────── */
 function parse(rows){
@@ -301,12 +323,62 @@ WESTBROOK, JAMES W\t216\t6\t6\t36301003\tScience Acc 6\tSC\t2399\tScience\t`;
   initLeg();render();save();toast('Demo data loaded');
 }
 
+/* ── TEACHER META ───────────────────────────────── */
+function courseGrade(name){const m=name.match(/\b([678])\b/);return m?+m[1]:0;}
+function mostCommon(arr){
+  if(!arr.length)return null;
+  const c={};arr.forEach(v=>c[v]=(c[v]||0)+1);
+  return Object.entries(c).sort((a,b)=>b[1]-a[1])[0][0];
+}
+function tMeta(teacher){
+  const ts=tiles.filter(t=>t.teacher===teacher&&t.pStart!==FP);
+  const grade=+mostCommon(ts.map(t=>courseGrade(t.course)).filter(g=>g>0))||0;
+  const room=mostCommon(ts.filter(t=>t.room).map(t=>t.room))||'—';
+  const deptId=mostCommon(ts.map(t=>t.deptId))||'';
+  const dept=(D[deptId]||{}).nm||'';
+  return {grade,room,deptId,dept};
+}
+function setSort(mode){
+  sortMode=mode;
+  document.querySelectorAll('.sb2').forEach(b=>b.classList.toggle('on',b.dataset.sort===mode));
+  render();
+}
+function sortedTeachers(teachers){
+  const meta={};teachers.forEach(t=>{meta[t]=tMeta(t);});
+  if(sortMode==='alpha') return [...teachers].sort();
+  if(sortMode==='grade') return [...teachers].sort((a,b)=>{
+    const ga=meta[a].grade||9,gb=meta[b].grade||9;
+    return ga!==gb?ga-gb:a.localeCompare(b);
+  });
+  if(sortMode==='dept') return [...teachers].sort((a,b)=>{
+    const da=meta[a].dept||'zzz',db=meta[b].dept||'zzz';
+    return da!==db?da.localeCompare(db):a.localeCompare(b);
+  });
+  // grade-dept (default)
+  return [...teachers].sort((a,b)=>{
+    const ga=meta[a].grade||9,gb=meta[b].grade||9;
+    if(ga!==gb)return ga-gb;
+    const da=meta[a].dept||'zzz',db=meta[b].dept||'zzz';
+    return da!==db?da.localeCompare(db):a.localeCompare(b);
+  });
+}
+
 /* ── RENDER ────────────────────────────────────────── */
 function sn(n){const p=n.split(',');return p.length<2?n:p[0].trim()+', '+p[1].trim()[0]+'.';}
 
 function idx(tls){
   const m={};
-  tls.forEach(t=>{const k=`${t.teacher}|${t.pStart}`;(m[k]=m[k]||[]).push(t);});
+  tls.forEach(t=>{
+    const k=`${t.teacher}|${t.pStart}`;
+    (m[k]=m[k]||[]).push(t);
+    // add continuation placeholder for each period a block course spans
+    if(typeof t.pStart==='number'&&typeof t.pEnd==='number'&&t.pEnd>t.pStart){
+      for(let p=t.pStart+1;p<=t.pEnd;p++){
+        const ck=`${t.teacher}|${p}`;
+        (m[ck]=m[ck]||[]).push({...t,_cont:true,_from:t.pStart});
+      }
+    }
+  });
   return m;
 }
 
@@ -318,36 +390,56 @@ function movedSet(){
 
 function render(){
   const G=document.getElementById('grid');
-  const fT=filterD?tiles.filter(t=>t.deptId===filterD):tiles;
-  const allT=[...new Set(tiles.map(t=>t.teacher))].sort();
-  const teachers=filterT?allT.filter(t=>t.toLowerCase().includes(filterT.toLowerCase())):allT;
-  const m=idx(fT), mv=movedSet();
+  const visTiles=filterS1?tiles.filter(t=>parseInt((t.courseNum||'000').slice(-3))%2===1):tiles;
+  const allT=[...new Set(visTiles.map(t=>t.teacher))];
+  let teachers=filterT?allT.filter(t=>t.toLowerCase().includes(filterT.toLowerCase())):allT;
+  if(filterD) teachers=teachers.filter(t=>tMeta(t).deptId===filterD);
+  teachers=sortedTeachers(teachers);
+  const m=idx(visTiles), mv=movedSet();
   G.style.gridTemplateColumns=`148px 88px repeat(${PERIODS.length-1},minmax(70px,1fr))`;
 
   let h=`<div class="gh ghn">Teacher</div>`;
   PERIODS.forEach(p=>h+=`<div class="gh${p===FP?' ghf':''}">${PL[p]}</div>`);
 
+  let prevGrade=null, prevDept=null;
   teachers.forEach(teacher=>{
-    h+=`<div class="gn" title="${teacher}">${sn(teacher)}</div>`;
+    const meta=tMeta(teacher);
+    if(sortMode==='grade-dept'||sortMode==='grade'){
+      const g=meta.grade||0;
+      const gl=g?`Grade ${g}`:'Other';
+      if(g!==prevGrade){h+=`<div class="grp-hdr">${gl}</div>`;prevGrade=g;prevDept=null;}
+      if(sortMode==='grade-dept'&&meta.dept!==prevDept){h+=`<div class="grp-sub">${meta.dept||'Other'}</div>`;prevDept=meta.dept;}
+    } else if(sortMode==='dept'){
+      if(meta.dept!==prevDept){h+=`<div class="grp-hdr">${meta.dept||'Other'}</div>`;prevDept=meta.dept;}
+    }
+
+    const dColor=(D[meta.deptId]||{}).tx||'var(--mu)';
+    h+=`<div class="gn" title="${teacher}"><span class="gn-nm">${sn(teacher)}</span><span class="gn-meta">${meta.room} · <span style="color:${dColor}">${meta.dept}</span></span></div>`;
+
     PERIODS.forEach(p=>{
       const ct=(m[`${teacher}|${p}`]||[]);
       const isF=p===FP;
-      const allSel=ct.length>0&&ct.every(t=>selIds.has(t.id));
+      const realTiles=ct.filter(t=>!t._cont);
+      const allSel=realTiles.length>0&&realTiles.every(t=>selIds.has(t.id));
       let ch='';
-      if(ct.length>1){
-        ch+=`<button class="sa${allSel?' on':''}" data-t="${teacher}" data-p="${p}">${ct.length} — select all</button>`;
+      if(realTiles.length>1){
+        ch+=`<button class="sa${allSel?' on':''}" data-t="${teacher}" data-p="${p}">${realTiles.length} — select all</button>`;
       }
       ct.forEach(t=>{
         const d=D[t.deptId]||{bg:'#222',bd:'#555',tx:'#aaa'};
         const cn=t.course.length>21?t.course.slice(0,20)+'…':t.course;
+        if(t._cont){
+          ch+=`<div class="tile tile-cont" style="background:${d.bg};border-color:${d.bd};color:${d.tx}" title="Block from P${t._from}: ${t.course}"><span class="tn">⬅ ${cn}</span><span class="tm"><span>block P${t._from}–${t.pEnd}</span></span></div>`;
+          return;
+        }
         const sp=!isF&&t.pEnd>t.pStart?`<span>→P${t.pEnd}</span>`:'';
         const rm=t.room?`<span>${t.room}</span>`:'';
         const co=t.teacher2?`<span>+co</span>`:'';
         const fb=isF?`<span style="color:var(--fc)">⬡float</span>`:'';
         const sel=selIds.has(t.id)?' sel':'';
         const moved=mv.has(t.id)&&!isF?' mv':'';
-        const tip=`${t.course}\n${t.courseNum}\nRm ${t.room||'—'} · P${t.pStart}${t.pEnd!==t.pStart?'–'+t.pEnd:''}\n${t.dept}${t.teacher2?'\nCo-teacher: '+t.teacher2:''}`;
-        ch+=`<div class="tile${sel}${moved}" data-id="${t.id}" style="background:${d.bg};border-color:${d.bd};color:${d.tx}" draggable="true" title="${tip}"><span class="tn">${cn}</span><span class="tm">${sp}${rm}${co}${fb}</span></div>`;
+        const tip=`${t.course} · ${t.courseNum}\nRm ${t.room||'—'} · P${t.pStart}${t.pEnd!==t.pStart?'–'+t.pEnd:''}\n${t.dept}${t.teacher2?'\nCo-teacher: '+t.teacher2:''}`;
+        ch+=`<div class="tile${sel}${moved}" data-id="${t.id}" style="background:${d.bg};border-color:${d.bd};color:${d.tx}" draggable="true" title="${tip}"><span class="tn">${cn} <span style="font-weight:400;opacity:.55;font-size:8.5px">${t.courseNum}</span></span><span class="tm">${sp}${rm}${co}${fb}</span></div>`;
       });
       h+=`<div class="gc${isF?' gcf':''}" data-dv="${isF?'dvf':'dv'}" data-t="${teacher}" data-p="${p}">${ch}</div>`;
     });
@@ -356,7 +448,13 @@ function render(){
   G.innerHTML=h;
   document.getElementById('lct').textContent=clog.length;
   const mc=mv.size;
-  document.getElementById('stat').textContent=`${tiles.length} sections · ${teachers.length} teachers · ${mc} moved`;
+  document.getElementById('stat').textContent=`${visTiles.length} sections · ${teachers.length} teachers · ${mc} moved`;
+}
+
+function toggleS1(){
+  filterS1=!filterS1;
+  document.getElementById('s1btn').classList.toggle('on',filterS1);
+  render();
 }
 
 /* ── SELECT-ALL & Ctrl-click ───────────────────────── */
@@ -371,6 +469,7 @@ document.getElementById('grid').addEventListener('click',e=>{
     render();return;
   }
   const tile=e.target.closest('.tile');
+  if(tile&&tile.classList.contains('tile-cont'))return; // ignore cont tiles
   if(tile&&(e.ctrlKey||e.metaKey||e.shiftKey)){
     e.preventDefault();
     const id=+tile.dataset.id;
@@ -386,6 +485,7 @@ document.getElementById('grid').addEventListener('click',e=>{
 const G=document.getElementById('grid');
 G.addEventListener('dragstart',e=>{
   const t=e.target.closest('.tile');if(!t)return;
+  if(t.classList.contains('tile-cont')){e.preventDefault();return;}
   dragId=+t.dataset.id;dragGroup=selIds.has(dragId)&&selIds.size>1;
   e.dataTransfer.effectAllowed='move';
   setTimeout(()=>{
@@ -515,7 +615,7 @@ function resetAll(){
 /* ── LEGEND ────────────────────────────────────────── */
 function initLeg(){
   const lb=document.getElementById('legbar');lb.innerHTML='';
-  [...new Set(tiles.map(t=>t.deptId))].forEach(id=>{
+  [...new Set(tiles.map(t=>t.deptId))].sort((a,b)=>(D[a]?.nm||'').localeCompare(D[b]?.nm||'')).forEach(id=>{
     const d=D[id];if(!d)return;
     const b=document.createElement('div');
     b.className='lc';b.style.cssText=`background:${d.bg};border-color:${d.bd};color:${d.tx}`;
