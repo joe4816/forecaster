@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Becker MS · Schedule Builder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f1117;--sf:#181c27;--sf2:#1e2435;
+  --bd:#2a3045;--bd2:#3a4560;
+  --tx:#e8ecf4;--mu:#8a94b0;
+  --ac:#4f8ef7;--ac2:#2d5fcc;
+  --fc:#8060cc;--fbd:#5a3cb5;--fbg:#1a1530;
+  --sel:#c8a030;--selb:rgba(200,160,48,.15);
+  --adc:#40a040;--rmc:#c04040;
+  --r:6px;
+}
+body{background:var(--bg);color:var(--tx);font-family:'DM Sans',sans-serif;font-size:13px;min-height:100vh;display:flex;flex-direction:column}
+/* header */
+header{display:flex;align-items:center;justify-content:space-between;padding:9px 16px;background:var(--sf);border-bottom:1px solid var(--bd);position:sticky;top:0;z-index:100;gap:8px;flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:9px;flex-shrink:0}
+.lm{width:28px;height:28px;border-radius:7px;background:var(--ac2);display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-size:10px;font-weight:500;color:#fff}
+.ls{font-size:10px;color:var(--mu)}
+.hb{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
+/* buttons */
+.btn{padding:5px 11px;border-radius:var(--r);border:1px solid var(--bd2);background:transparent;color:var(--tx);font-family:'DM Sans',sans-serif;font-size:11px;cursor:pointer;transition:all .15s;white-space:nowrap}
+.btn:hover{background:var(--sf2);border-color:var(--ac)}
+.btn-p{background:var(--ac2);border-color:var(--ac);color:#fff}
+.btn-p:hover{background:var(--ac)}
+.btn-w{border-color:#c08030;color:#e0a040}
+.btn-w:hover{background:#2a1a00}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+/* toolbar */
+#tb{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:7px 16px;background:var(--sf);border-bottom:1px solid var(--bd)}
+#srch{background:var(--sf2);border:1px solid var(--bd2);color:var(--tx);padding:5px 9px;border-radius:var(--r);font-family:'DM Sans',sans-serif;font-size:11px;width:155px}
+#srch::placeholder{color:var(--mu)}
+#srch:focus{outline:none;border-color:var(--ac)}
+#legbar{display:flex;gap:3px;flex-wrap:wrap}
+.lc{padding:2px 7px;border-radius:20px;font-size:9.5px;font-family:'DM Mono',monospace;cursor:pointer;border-width:1px;border-style:solid;opacity:.6;transition:opacity .15s}
+.lc:hover,.lc.on{opacity:1}
+.lc.on{outline:2px solid currentColor;outline-offset:1px}
+#stat{font-size:10px;color:var(--mu);margin-left:auto;flex-shrink:0}
+/* main grid */
+#main{overflow:auto;flex:1}
+.sg{display:grid;font-family:'DM Mono',monospace;min-width:920px}
+/* grid headers */
+.gh{font-size:9px;font-weight:500;color:var(--mu);padding:4px 5px;text-align:center;background:var(--sf);border-bottom:1px solid var(--bd2);position:sticky;top:0;z-index:3;letter-spacing:.4px;white-space:nowrap}
+.ghf{color:var(--fc);border-bottom-color:var(--fbd)}
+.ghn{text-align:left;position:sticky;left:0;z-index:5;background:var(--sf)}
+/* teacher row */
+.gn{font-size:10px;color:var(--mu);padding:3px 7px;border-top:1px solid var(--bd);display:flex;align-items:flex-start;line-height:1.4;position:sticky;left:0;z-index:2;background:var(--sf);min-height:34px;word-break:break-word}
+.gn:hover{color:var(--tx)}
+/* course cell */
+.gc{padding:2px;border-top:1px solid var(--bd);border-left:1px solid var(--bd);min-height:34px;display:flex;flex-direction:column;gap:2px;transition:background .1s;position:relative}
+.gcf{border-left:1px dashed var(--fbd);background:rgba(90,60,181,.05)}
+.gc.dv{background:rgba(79,142,247,.12);border-color:var(--ac)}
+.gc.dvf{background:rgba(140,96,204,.2);border-color:var(--fc)}
+/* select-all badge */
+.sa{display:none;position:absolute;top:2px;right:2px;font-size:8px;padding:1px 5px;border-radius:9px;cursor:pointer;z-index:10;background:var(--sf2);border:1px solid var(--bd2);color:var(--mu);line-height:1.5}
+.gc:hover .sa{display:block}
+.sa:hover{border-color:var(--sel);color:var(--sel)}
+.sa.on{background:var(--selb);border-color:var(--sel);color:var(--sel);display:block}
+/* tile */
+.tile{border-radius:3px;padding:3px 4px;cursor:grab;display:flex;flex-direction:column;gap:1px;line-height:1.25;border-width:1px;border-style:solid;transition:opacity .12s,outline .1s;user-select:none;font-size:10px}
+.tile:active{cursor:grabbing}
+.tile.dr{opacity:.22}
+.tile.sel{outline:2px solid var(--sel);outline-offset:0}
+.tile.mv{outline:2px solid rgba(255,255,255,.3);outline-offset:0}
+.tn{font-weight:500;word-break:break-word}
+.tm{font-size:8.5px;opacity:.65;display:flex;gap:3px;flex-wrap:wrap}
+/* log panel */
+#lp{background:var(--sf);border-top:1px solid var(--bd2);display:none;flex-direction:column;max-height:210px}
+#lp.open{display:flex}
+#lh{display:flex;align-items:center;gap:8px;padding:5px 14px;border-bottom:1px solid var(--bd);flex-shrink:0}
+#lh span{font-size:11px;font-weight:500}
+#lhd{display:grid;grid-template-columns:52px 1fr 36px 36px 36px 1fr 44px;gap:0;font-size:9px;font-family:'DM Mono',monospace;border-bottom:1px solid var(--bd2);padding:3px 14px;color:var(--mu);flex-shrink:0;background:var(--sf)}
+#lb{overflow-y:auto;flex:1}
+.lr{display:grid;grid-template-columns:52px 1fr 36px 36px 36px 1fr 44px;gap:0;font-size:9.5px;font-family:'DM Mono',monospace;border-bottom:1px solid var(--bd);padding:2px 14px;align-items:center}
+.lr:hover{background:var(--sf2)}
+.lr.add{border-left:2px solid var(--adc)}
+.lr.rem{border-left:2px solid var(--rmc)}
+.lt{font-weight:500}
+.lt.add{color:#60c060}
+.lt.rem{color:#e06060}
+/* setup overlay */
+#setup{position:fixed;inset:0;background:rgba(10,12,20,.94);display:flex;align-items:center;justify-content:center;z-index:200;backdrop-filter:blur(4px)}
+.sc{background:var(--sf);border:1px solid var(--bd2);border-radius:12px;padding:24px 28px;width:450px;max-width:95vw}
+.sc h2{font-size:15px;font-weight:500;margin-bottom:4px}
+.sc p{color:var(--mu);font-size:12px;line-height:1.6;margin-bottom:14px}
+.fi{margin-bottom:11px}
+.fi label{display:block;font-size:10px;color:var(--mu);margin-bottom:3px}
+.fi input{width:100%;background:var(--sf2);border:1px solid var(--bd2);color:var(--tx);padding:6px 9px;border-radius:var(--r);font-family:'DM Mono',monospace;font-size:11px}
+.fi input:focus{outline:none;border-color:var(--ac)}
+.sn{font-size:10px;color:var(--mu);line-height:1.7;background:var(--bg);border-radius:var(--r);padding:8px 12px;margin-top:10px;border-left:2px solid var(--ac2)}
+.sn a{color:var(--ac);text-decoration:none}
+/* session banner */
+#sb{background:#162016;border-bottom:1px solid #2a4a2a;padding:6px 16px;display:none;align-items:center;gap:10px;font-size:11px;color:#70b870}
+/* toast */
+#toast{position:fixed;bottom:14px;right:14px;background:var(--sf2);border:1px solid var(--bd2);border-radius:var(--r);padding:7px 13px;font-size:11px;color:var(--tx);opacity:0;transform:translateY(6px);transition:all .2s;pointer-events:none;z-index:300;max-width:260px}
+#toast.show{opacity:1;transform:translateY(0)}
+.sp{display:inline-block;width:11px;height:11px;border:2px solid var(--bd2);border-top-color:var(--ac);border-radius:50%;animation:sp .6s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<div id="setup">
+  <div class="sc">
+    <h2>Becker Schedule Builder</h2>
+    <p>Connect your Forecaster sheet, restore a saved session, or try demo data.</p>
+    <div class="fi"><label>SHEET ID</label><input id="cs" placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms"></div>
+    <div class="fi"><label>TAB NAME (exact)</label><input id="ct" value="Sheet1"></div>
+    <div class="fi"><label>API KEY</label><input id="ck" type="password" placeholder="AIza..."></div>
+    <div style="display:flex;gap:6px;margin-top:14px;flex-wrap:wrap">
+      <button class="btn btn-p" onclick="connectSheet()">Connect sheet</button>
+      <button class="btn" id="rb" style="display:none" onclick="restoreSession()">↩ Restore session</button>
+      <button class="btn" onclick="loadDemo()">Load demo data</button>
+    </div>
+    <div class="sn">Sheet must be <strong>"Anyone with link can view."</strong><br>
+    Need a key? <a href="https://console.cloud.google.com/apis/library/sheets.googleapis.com" target="_blank">Google Cloud → Sheets API → Credentials</a></div>
+  </div>
+</div>
+
+<div id="sb">
+  <span>↩ Session restored — <span id="si"></span></span>
+  <button class="btn" style="padding:2px 7px;font-size:10px" onclick="clearSess()">Clear</button>
+</div>
+
+<header>
+  <div class="logo">
+    <div class="lm">BMS</div>
+    <div><div style="font-size:13px;font-weight:500">Schedule Builder</div><div class="ls">Becker Middle School · CCSD</div></div>
+  </div>
+  <div class="hb">
+    <button class="btn" onclick="resetAll()">↺ Reset all</button>
+    <button class="btn btn-w" onclick="toggleLog()">Log <span id="lct">0</span></button>
+    <button class="btn btn-p" onclick="exportCSV()">⬇ Export CSV</button>
+    <button class="btn" onclick="reloadSheet()" id="rlb" disabled>↻ Sheet</button>
+    <button class="btn" onclick="document.getElementById('setup').style.display='flex'">⚙</button>
+  </div>
+</header>
+
+<div id="tb">
+  <input type="text" id="srch" placeholder="Filter teacher…">
+  <div id="legbar"></div>
+  <div id="stat"></div>
+</div>
+
+<div id="main"><div class="sg" id="grid"></div></div>
+
+<div id="lp">
+  <div id="lh">
+    <span>Change log</span>
+    <button class="btn" style="padding:2px 7px;font-size:10px" onclick="undoLast()">↩ Undo last</button>
+    <button class="btn" style="padding:2px 7px;font-size:10px" onclick="clearLog()">Clear log</button>
+    <button class="btn" style="padding:2px 7px;font-size:10px;margin-left:auto" onclick="toggleLog()">✕</button>
+  </div>
+  <div id="lhd"><div>TYPE</div><div>TEACHER</div><div>RM</div><div>P.ST</div><div>P.END</div><div>COURSE</div><div>DEPT ID</div></div>
+  <div id="lb"></div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ── DEPTS ─────────────────────────────────────────── */
+const D={
+  '2394':{bg:'#0d2a45',bd:'#1e5c99',tx:'#7ab8f5',nm:'English'},
+  '2397':{bg:'#1e1040',bd:'#5a3cb5',tx:'#a088e8',nm:'Math'},
+  '2399':{bg:'#0d2d1a',bd:'#1f7040',tx:'#55c47a',nm:'Science'},
+  '2400':{bg:'#2d1f05',bd:'#8a5a0a',tx:'#e0a830',nm:'Soc Studies'},
+  '2402':{bg:'#2d1008',bd:'#8a2a10',tx:'#e06040',nm:'Stud Svcs'},
+  '2390':{bg:'#2d0d20',bd:'#8a2058',tx:'#e060a8',nm:'Arts/PA'},
+  '2398':{bg:'#0d2a20',bd:'#106848',tx:'#40c890',nm:'PE/Dance'},
+  '2395':{bg:'#0a1e38',bd:'#0f4880',tx:'#4898e0',nm:'Frgn Lang'},
+  '2392':{bg:'#1a1a22',bd:'#4a4a60',tx:'#9898b8',nm:'Computers'},
+  '2396':{bg:'#0d2820',bd:'#0e6040',tx:'#38b878',nm:'Health'},
+  '8870':{bg:'#28081e',bd:'#780848',tx:'#d858a8',nm:'ELL'},
+  '2393':{bg:'#1e1c18',bd:'#505038',tx:'#909070',nm:'Electives'},
+};
+const FP='F'; // Float period key
+const PERIODS=[FP,0,1,2,3,4,5,6,7];
+const PL={F:'FLOAT',0:'P0',1:'P1',2:'P2',3:'P3',4:'P4',5:'P5',6:'P6',7:'P7'};
+
+/* ── STATE ─────────────────────────────────────────── */
+let tiles=[], origs=[], clog=[], selIds=new Set();
+let filterT='', filterD='', cfg={};
+let dragId=null, dragGroup=false, logSeq=0;
+
+/* ── PARSE ─────────────────────────────────────────── */
+function parse(rows){
+  const seen=new Set(), out=[];
+  rows.slice(1).forEach(r=>{
+    if(!r||!r[0]) return;
+    const teacher=(r[0]||'').trim(), room=(r[1]||'').trim(),
+      pStart=r[2]===''?null:+r[2], pEnd=r[3]===''?null:+r[3],
+      courseNum=(r[4]||'').trim(), course=(r[5]||'').trim(),
+      subject=(r[6]||'').trim(), deptId=(r[7]||'').trim(),
+      dept=(r[8]||'').trim(), teacher2=(r[9]||'').trim();
+    if(!teacher||!course||pStart===null||isNaN(pStart)) return;
+    const key=`${teacher}|${pStart}|${courseNum}`;
+    if(!seen.has(key)){
+      seen.add(key);
+      out.push({id:out.length,teacher,room,pStart,pEnd,courseNum,course,subject,deptId,dept,teacher2});
+    }
+  });
+  return out;
+}
+
+/* ── SHEETS API ────────────────────────────────────── */
+async function connectSheet(){
+  const sid=document.getElementById('cs').value.trim();
+  const tab=document.getElementById('ct').value.trim()||'Sheet1';
+  const key=document.getElementById('ck').value.trim();
+  if(!sid||!key){toast('Enter Sheet ID and API key');return;}
+  cfg={sid,tab,key};
+  document.getElementById('setup').style.display='none';
+  await reloadSheet();
+}
+async function reloadSheet(){
+  const btn=document.getElementById('rlb');
+  btn.disabled=true;btn.innerHTML='<span class="sp"></span>';
+  try{
+    const url=`https://sheets.googleapis.com/v4/spreadsheets/${cfg.sid}/values/${encodeURIComponent(cfg.tab)}?key=${cfg.key}`;
+    const r=await fetch(url);
+    if(!r.ok){const e=await r.json();throw new Error(e.error?.message||'Fetch failed');}
+    const data=await r.json();
+    tiles=parse(data.values||[]);
+    origs=tiles.map(t=>({...t}));
+    clog=[];selIds.clear();
+    initLeg();render();save();
+    toast(`Loaded ${tiles.length} sections`);
+    btn.disabled=false;btn.innerHTML='↻ Sheet';
+  }catch(e){
+    toast('Error: '+e.message,'err');
+    btn.innerHTML='↻ Sheet';btn.disabled=false;
+  }
+}
+
+/* ── DEMO DATA ─────────────────────────────────────── */
+function loadDemo(){
+  document.getElementById('setup').style.display='none';
+  const raw=`Teacher\tRoom\tPS\tPE\tCN\tCourse\tSubj\tDid\tDept\t2T
+ANDERSON, SEAN\tGYM\t1\t1\t57149001\tPE 6\tEL\t2398\tPE/Dance\t
+ANDERSON, SEAN\tGYM\t2\t2\t57149002\tPE 6\tEL\t2398\tPE/Dance\t
+ANDERSON, SEAN\tGYM\t3\t3\t57149003\tPE 6\tEL\t2398\tPE/Dance\t
+ANDERSON, SEAN\tGYM\t3\t3\t57357001\tPE 7\tEL\t2398\tPE/Dance\t
+ANDERSON, SEAN\tGYM\t5\t5\t57149004\tPE 6\tEL\t2398\tPE/Dance\t
+ANDERSON, SEAN\tGYM\t6\t6\t57149005\tPE 6\tEL\t2398\tPE/Dance\t
+BLANKS, TRACY D\t219\t0\t0\t26401001\tMath Acc 6\tMA\t2397\tMathematics\t
+BLANKS, TRACY D\t219\t0\t0\t26801001\tMath Acc 7\tMA\t2397\tMathematics\t
+BLANKS, TRACY D\t219\t1\t1\t26401002\tMath Acc 6\tMA\t2397\tMathematics\t
+BLANKS, TRACY D\t219\t1\t1\t26801002\tMath Acc 7\tMA\t2397\tMathematics\t
+BLANKS, TRACY D\t219\t3\t3\t26401003\tMath Acc 6\tMA\t2397\tMathematics\t
+BLANKS, TRACY D\t219\t4\t4\t26300001\tMath 6\tMA\t2397\tMathematics\t
+BLANKS, TRACY D\t219\t5\t5\t26300002\tMath 6\tMA\t2397\tMathematics\t
+BELLFLOWER, MELISSA A\t107\t1\t1\t47461001\tHist & Geo ACC 8\tSS\t2400\tSocial Studies\t
+BELLFLOWER, MELISSA A\t107\t2\t2\t47421801\tHist & Geo ACC 7\tSS\t2400\tSocial Studies\t
+BELLFLOWER, MELISSA A\t107\t3\t3\t47421802\tHist & Geo ACC 7\tSS\t2400\tSocial Studies\t
+BELLFLOWER, MELISSA A\t107\t4\t4\t47421803\tHist & Geo ACC 7\tSS\t2400\tSocial Studies\t
+BELLFLOWER, MELISSA A\t107\t5\t5\t47461002\tHist & Geo ACC 8\tSS\t2400\tSocial Studies\t
+BELLFLOWER, MELISSA A\t107\t6\t6\t47461003\tHist & Geo ACC 8\tSS\t2400\tSocial Studies\t
+CLARDY, JAMES P\t402\t2\t2\t84500001\tGuitar MS Advanced\tEL\t2390\tArts/PA\t
+CLARDY, JAMES P\t402\t3\t3\t84450001\tGuitar MS Intermediate\tEL\t2390\tArts/PA\t
+CLARDY, JAMES P\t402\t4\t4\t84400001\tGuitar MS Beginning\tEL\t2390\tArts/PA\t
+CLARDY, JAMES P\t402\t5\t5\t83850001\tChoir MS Advanced\tEL\t2390\tArts/PA\t
+CLARDY, JAMES P\t402\t6\t6\t83750001\tChoir MS Beginning\tEL\t2390\tArts/PA\t
+DILLINGER, KIMBERLY A\t225\t2\t3\t16301001\tEng LA 6 Block Acc\tLA\t2394\tEnglish\t
+DILLINGER, KIMBERLY A\t225\t4\t5\t16301002\tEng LA 6 Block Acc\tLA\t2394\tEnglish\t
+DILLINGER, KIMBERLY A\t225\t6\t6\t16000001\tEnglish 6\tLA\t2394\tEnglish\t
+DUNCAN, KIMBERLY\t224\t1\t1\t26300003\tMath 6\tMA\t2397\tMathematics\t
+DUNCAN, KIMBERLY\t224\t2\t2\t26300004\tMath 6\tMA\t2397\tMathematics\t
+DUNCAN, KIMBERLY\t224\t3\t3\t26300005\tMath 6\tMA\t2397\tMathematics\t
+DUNCAN, KIMBERLY\t224\t4\t4\t26401004\tMath Acc 6\tMA\t2397\tMathematics\t
+DUNCAN, KIMBERLY\t224\t6\t6\t29400001\tFund of Math\tEL\t2397\tMathematics\t
+ORR-ELLIS, HEATHER\tGYM\t1\t1\t57140001\tPE 6\tEL\t2398\tPE/Dance\t
+ORR-ELLIS, HEATHER\tGYM\t2\t2\t57140002\tPE 6\tEL\t2398\tPE/Dance\t
+ORR-ELLIS, HEATHER\tGYM\t3\t3\t57140003\tPE 6\tEL\t2398\tPE/Dance\t
+ORR-ELLIS, HEATHER\tGYM\t5\t5\t57140004\tPE 6\tEL\t2398\tPE/Dance\t
+ORR-ELLIS, HEATHER\tGYM\t6\t6\t57140005\tPE 6\tEL\t2398\tPE/Dance\t
+REID, BARRY\t309\t1\t1\t36900001\tScience 7\tSC\t2399\tScience\t
+REID, BARRY\t309\t2\t2\t37001001\tScience Acc 7\tSC\t2399\tScience\t
+REID, BARRY\t309\t3\t3\t37001002\tScience Acc 7\tSC\t2399\tScience\t
+REID, BARRY\t309\t4\t4\t37001003\tScience Acc 7\tSC\t2399\tScience\t
+REID, BARRY\t309\t5\t5\t36900002\tScience 7\tSC\t2399\tScience\t
+SIQUEIROS, JULIET M\t223\t1\t2\t16301003\tEng LA 6 Block Acc\tLA\t2394\tEnglish\t
+SIQUEIROS, JULIET M\t223\t3\t3\t17600001\tReading 6\tLA\t2394\tEnglish\t
+SIQUEIROS, JULIET M\t223\t4\t5\t16200001\tEnglish LA 6 Block\tLA\t2394\tEnglish\t
+WESTBROOK, JAMES W\t216\t1\t1\t36301001\tScience Acc 6\tSC\t2399\tScience\t
+WESTBROOK, JAMES W\t216\t2\t2\t36301002\tScience Acc 6\tSC\t2399\tScience\t
+WESTBROOK, JAMES W\t216\t3\t3\t36200001\tScience 6\tSC\t2399\tScience\t
+WESTBROOK, JAMES W\t216\t4\t4\t36200002\tScience 6\tSC\t2399\tScience\t
+WESTBROOK, JAMES W\t216\t5\t5\t36200003\tScience 6\tSC\t2399\tScience\t
+WESTBROOK, JAMES W\t216\t6\t6\t36301003\tScience Acc 6\tSC\t2399\tScience\t`;
+  const rows=raw.trim().split('\n').map(l=>l.split('\t'));
+  tiles=parse(rows);origs=tiles.map(t=>({...t}));
+  clog=[];selIds.clear();cfg={demo:true};
+  document.getElementById('rlb').disabled=true;
+  initLeg();render();save();toast('Demo data loaded');
+}
+
+/* ── RENDER ────────────────────────────────────────── */
+function sn(n){const p=n.split(',');return p.length<2?n:p[0].trim()+', '+p[1].trim()[0]+'.';}
+
+function idx(tls){
+  const m={};
+  tls.forEach(t=>{const k=`${t.teacher}|${t.pStart}`;(m[k]=m[k]||[]).push(t);});
+  return m;
+}
+
+function movedSet(){
+  const s=new Set();
+  tiles.forEach((t,i)=>{if(t.teacher!==origs[i].teacher||t.pStart!==origs[i].pStart)s.add(t.id);});
+  return s;
+}
+
+function render(){
+  const G=document.getElementById('grid');
+  const fT=filterD?tiles.filter(t=>t.deptId===filterD):tiles;
+  const allT=[...new Set(tiles.map(t=>t.teacher))].sort();
+  const teachers=filterT?allT.filter(t=>t.toLowerCase().includes(filterT.toLowerCase())):allT;
+  const m=idx(fT), mv=movedSet();
+  G.style.gridTemplateColumns=`148px 88px repeat(${PERIODS.length-1},minmax(70px,1fr))`;
+
+  let h=`<div class="gh ghn">Teacher</div>`;
+  PERIODS.forEach(p=>h+=`<div class="gh${p===FP?' ghf':''}">${PL[p]}</div>`);
+
+  teachers.forEach(teacher=>{
+    h+=`<div class="gn" title="${teacher}">${sn(teacher)}</div>`;
+    PERIODS.forEach(p=>{
+      const ct=(m[`${teacher}|${p}`]||[]);
+      const isF=p===FP;
+      const allSel=ct.length>0&&ct.every(t=>selIds.has(t.id));
+      let ch='';
+      if(ct.length>1){
+        ch+=`<button class="sa${allSel?' on':''}" data-t="${teacher}" data-p="${p}">${ct.length} — select all</button>`;
+      }
+      ct.forEach(t=>{
+        const d=D[t.deptId]||{bg:'#222',bd:'#555',tx:'#aaa'};
+        const cn=t.course.length>21?t.course.slice(0,20)+'…':t.course;
+        const sp=!isF&&t.pEnd>t.pStart?`<span>→P${t.pEnd}</span>`:'';
+        const rm=t.room?`<span>${t.room}</span>`:'';
+        const co=t.teacher2?`<span>+co</span>`:'';
+        const fb=isF?`<span style="color:var(--fc)">⬡float</span>`:'';
+        const sel=selIds.has(t.id)?' sel':'';
+        const moved=mv.has(t.id)&&!isF?' mv':'';
+        const tip=`${t.course}\n${t.courseNum}\nRm ${t.room||'—'} · P${t.pStart}${t.pEnd!==t.pStart?'–'+t.pEnd:''}\n${t.dept}${t.teacher2?'\nCo-teacher: '+t.teacher2:''}`;
+        ch+=`<div class="tile${sel}${moved}" data-id="${t.id}" style="background:${d.bg};border-color:${d.bd};color:${d.tx}" draggable="true" title="${tip}"><span class="tn">${cn}</span><span class="tm">${sp}${rm}${co}${fb}</span></div>`;
+      });
+      h+=`<div class="gc${isF?' gcf':''}" data-dv="${isF?'dvf':'dv'}" data-t="${teacher}" data-p="${p}">${ch}</div>`;
+    });
+  });
+
+  G.innerHTML=h;
+  document.getElementById('lct').textContent=clog.length;
+  const mc=mv.size;
+  document.getElementById('stat').textContent=`${tiles.length} sections · ${teachers.length} teachers · ${mc} moved`;
+}
+
+/* ── SELECT-ALL & Ctrl-click ───────────────────────── */
+document.getElementById('grid').addEventListener('click',e=>{
+  const sa=e.target.closest('.sa');
+  if(sa){
+    e.stopPropagation();
+    const teacher=sa.dataset.t, period=sa.dataset.p;
+    const inCell=tiles.filter(t=>t.teacher===teacher&&String(t.pStart)===String(period));
+    const allS=inCell.every(t=>selIds.has(t.id));
+    inCell.forEach(t=>allS?selIds.delete(t.id):selIds.add(t.id));
+    render();return;
+  }
+  const tile=e.target.closest('.tile');
+  if(tile&&(e.ctrlKey||e.metaKey||e.shiftKey)){
+    e.preventDefault();
+    const id=+tile.dataset.id;
+    selIds.has(id)?selIds.delete(id):selIds.add(id);
+    render();return;
+  }
+  if(!e.target.closest('.tile')&&!e.target.closest('.sa')&&selIds.size){
+    selIds.clear();render();
+  }
+});
+
+/* ── DRAG & DROP ───────────────────────────────────── */
+const G=document.getElementById('grid');
+G.addEventListener('dragstart',e=>{
+  const t=e.target.closest('.tile');if(!t)return;
+  dragId=+t.dataset.id;dragGroup=selIds.has(dragId)&&selIds.size>1;
+  e.dataTransfer.effectAllowed='move';
+  setTimeout(()=>{
+    if(dragGroup)selIds.forEach(id=>{const el=document.querySelector(`.tile[data-id="${id}"]`);if(el)el.classList.add('dr');});
+    else t.classList.add('dr');
+  },0);
+});
+G.addEventListener('dragend',()=>{
+  document.querySelectorAll('.tile.dr').forEach(el=>el.classList.remove('dr'));
+  dragId=null;dragGroup=false;
+  G.querySelectorAll('.gc.dv,.gc.dvf').forEach(c=>{c.classList.remove('dv');c.classList.remove('dvf');});
+});
+G.addEventListener('dragover',e=>{
+  const c=e.target.closest('.gc');if(!c)return;
+  e.preventDefault();
+  G.querySelectorAll('.gc.dv,.gc.dvf').forEach(x=>{x.classList.remove('dv');x.classList.remove('dvf');});
+  c.classList.add(c.dataset.dv||'dv');
+});
+G.addEventListener('dragleave',e=>{
+  const c=e.target.closest('.gc');
+  if(c&&!c.contains(e.relatedTarget)){c.classList.remove('dv');c.classList.remove('dvf');}
+});
+G.addEventListener('drop',e=>{
+  e.preventDefault();
+  G.querySelectorAll('.gc.dv,.gc.dvf').forEach(c=>{c.classList.remove('dv');c.classList.remove('dvf');});
+  if(dragId===null)return;
+  const cell=e.target.closest('.gc');if(!cell)return;
+  const newT=cell.dataset.t;
+  const rawP=cell.dataset.p;
+  const newP=rawP===FP?FP:+rawP;
+  const ids=dragGroup?[...selIds]:[dragId];
+  let moved=0;
+  ids.forEach(id=>{
+    const tile=tiles.find(t=>t.id===id);if(!tile)return;
+    if(tile.teacher===newT&&String(tile.pStart)===String(newP))return;
+    const prevT=tile.teacher, prevPS=tile.pStart, prevPE=tile.pEnd;
+    const span=(typeof tile.pEnd==='number'&&typeof tile.pStart==='number')?tile.pEnd-tile.pStart:0;
+    // REMOVE entry
+    logPush('REMOVE',{...tile,teacher:prevT,pStart:prevPS,pEnd:prevPE});
+    // update
+    tile.teacher=newT;tile.pStart=newP;
+    tile.pEnd=newP===FP?FP:newP+span;
+    // ADD entry
+    logPush('ADD',{...tile});
+    moved++;
+  });
+  selIds.clear();
+  if(moved) save();
+  render();
+});
+
+/* ── CHANGE LOG ────────────────────────────────────── */
+function logPush(type,t){
+  clog.push({_id:logSeq++,type,
+    teacher:t.teacher,room:t.room,pStart:t.pStart,pEnd:t.pEnd,
+    courseNum:t.courseNum,course:t.course,subject:t.subject,
+    deptId:t.deptId,dept:t.dept,teacher2:t.teacher2,
+    tileId:t.id,ts:new Date().toISOString()});
+  rebuildLog();
+}
+
+function rebuildLog(){
+  document.getElementById('lb').innerHTML=[...clog].reverse().map(e=>`
+    <div class="lr ${e.type.toLowerCase()}" title="${new Date(e.ts).toLocaleTimeString()}">
+      <div class="lt ${e.type.toLowerCase()}">${e.type}</div>
+      <div>${sn(e.teacher)}</div>
+      <div>${e.room||'—'}</div>
+      <div>${e.pStart===FP?'F':e.pStart}</div>
+      <div>${e.pEnd===FP||e.pEnd===e.pStart?'—':e.pEnd}</div>
+      <div title="${e.course}">${e.course.length>30?e.course.slice(0,29)+'…':e.course}</div>
+      <div>${e.deptId}</div>
+    </div>`).join('');
+  document.getElementById('lct').textContent=clog.length;
+}
+
+function toggleLog(){document.getElementById('lp').classList.toggle('open');}
+
+function undoLast(){
+  let ai=-1;
+  for(let i=clog.length-1;i>=0;i--){if(clog[i].type==='ADD'){ai=i;break;}}
+  if(ai<0){toast('Nothing to undo');return;}
+  const ae=clog[ai];
+  let ri=-1;
+  for(let i=ai-1;i>=0;i--){if(clog[i].tileId===ae.tileId&&clog[i].type==='REMOVE'){ri=i;break;}}
+  const tile=tiles.find(t=>t.id===ae.tileId);
+  if(!tile){toast('Tile not found');return;}
+  if(ri>=0){
+    const prev=clog[ri];
+    tile.teacher=prev.teacher;tile.pStart=prev.pStart;tile.pEnd=prev.pEnd;
+  }
+  const drop=new Set([ai,ri].filter(i=>i>=0));
+  clog=clog.filter((_,i)=>!drop.has(i));
+  selIds.clear();rebuildLog();render();save();toast('Move undone');
+}
+
+function clearLog(){
+  if(!clog.length)return;
+  if(!confirm('Clear change log? Tile positions stay.'))return;
+  clog=[];rebuildLog();render();save();
+}
+
+/* ── EXPORT CSV ────────────────────────────────────── */
+function exportCSV(){
+  if(!clog.length){toast('No changes to export');return;}
+  const h=['Type','Teacher','Room','Period Start','Period End','Course Number','Course','Subject','Dept ID','Department','2nd Teacher'];
+  const rows=clog.map(e=>[
+    e.type,e.teacher,e.room,
+    e.pStart===FP?'FLOAT':e.pStart,
+    e.pEnd===FP||e.pEnd===e.pStart?'':e.pEnd,
+    e.courseNum,e.course,e.subject,e.deptId,e.dept,e.teacher2||''
+  ].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(','));
+  const csv=[h.join(','),...rows].join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download=`becker-changes-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  toast(`Exported ${clog.length} log entries`);
+}
+
+/* ── RESET ─────────────────────────────────────────── */
+function resetAll(){
+  if(!confirm('Reset all tiles and clear the change log?'))return;
+  tiles.forEach((t,i)=>{t.teacher=origs[i].teacher;t.pStart=origs[i].pStart;t.pEnd=origs[i].pEnd;});
+  clog=[];selIds.clear();rebuildLog();render();save();toast('Reset complete');
+}
+
+/* ── LEGEND ────────────────────────────────────────── */
+function initLeg(){
+  const lb=document.getElementById('legbar');lb.innerHTML='';
+  [...new Set(tiles.map(t=>t.deptId))].forEach(id=>{
+    const d=D[id];if(!d)return;
+    const b=document.createElement('div');
+    b.className='lc';b.style.cssText=`background:${d.bg};border-color:${d.bd};color:${d.tx}`;
+    b.textContent=d.nm;
+    b.addEventListener('click',()=>{
+      filterD=filterD===id?'':id;
+      lb.querySelectorAll('.lc').forEach(x=>x.classList.remove('on'));
+      if(filterD)b.classList.add('on');render();
+    });
+    lb.appendChild(b);
+  });
+}
+document.getElementById('srch').addEventListener('input',e=>{filterT=e.target.value;render();});
+
+/* ── SESSION (localStorage) ────────────────────────── */
+const SK='becker-sb-v3';
+function save(){
+  try{localStorage.setItem(SK,JSON.stringify({
+    tiles:tiles.map(t=>({id:t.id,teacher:t.teacher,pStart:t.pStart,pEnd:t.pEnd})),
+    clog,cfg:{sid:cfg.sid,tab:cfg.tab},ts:new Date().toISOString()
+  }));}catch(e){}
+}
+function checkSaved(){
+  try{
+    const s=JSON.parse(localStorage.getItem(SK)||'null');
+    if(s&&s.tiles&&s.tiles.length) document.getElementById('rb').style.display='inline-block';
+  }catch(e){}
+}
+function restoreSession(){
+  try{
+    const s=JSON.parse(localStorage.getItem(SK));
+    if(!s){toast('No session found');return;}
+    document.getElementById('setup').style.display='none';
+    if(tiles.length>0) applySess(s);
+    else{toast('Load sheet data first, then session will auto-apply','err');document.getElementById('setup').style.display='flex';}
+  }catch(e){toast('Restore error: '+e.message,'err');}
+}
+function applySess(s){
+  const pm={};s.tiles.forEach(t=>pm[t.id]=t);
+  tiles.forEach(t=>{if(pm[t.id])Object.assign(t,pm[t.id]);});
+  clog=s.clog||[];
+  document.getElementById('sb').style.display='flex';
+  document.getElementById('si').textContent=`${clog.length} changes · ${new Date(s.ts).toLocaleString()}`;
+  rebuildLog();render();toast('Session restored');
+}
+function clearSess(){
+  localStorage.removeItem(SK);
+  document.getElementById('sb').style.display='none';toast('Session cleared');
+}
+
+/* ── TOAST ─────────────────────────────────────────── */
+let tTimer;
+function toast(msg,type='ok'){
+  const el=document.getElementById('toast');el.textContent=msg;
+  el.style.borderLeft=`3px solid ${type==='err'?'#c04040':'var(--ac2)'}`;
+  el.classList.add('show');clearTimeout(tTimer);
+  tTimer=setTimeout(()=>el.classList.remove('show'),3200);
+}
+
+checkSaved();
+</script>
+</body>
+</html>
