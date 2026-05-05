@@ -111,6 +111,17 @@ header{display:flex;align-items:center;justify-content:space-between;padding:9px
 .sn a{color:var(--ac);text-decoration:none}
 /* session banner */
 #sb{background:#162016;border-bottom:1px solid #2a4a2a;padding:6px 16px;display:none;align-items:center;gap:10px;font-size:11px;color:#70b870}
+/* stats bar */
+#stats-bar{background:var(--sf);border-bottom:1px solid var(--bd);padding:3px 14px;display:none;gap:10px;flex-wrap:wrap;align-items:center;font-family:'DM Mono',monospace;font-size:9.5px;color:var(--mu)}
+#stats-bar.vis{display:flex}
+.sbi{display:flex;flex-direction:column;gap:0px;min-width:54px}
+.sbl{font-size:7.5px;opacity:.55;letter-spacing:.4px;text-transform:uppercase}
+.sbv{font-size:10px;color:var(--tx)}
+.sbv .ok{color:#55c47a}.sbv .warn{color:#e0a830}.sbv .full{color:#e06040}
+.sb-sep{width:1px;height:24px;background:var(--bd2);flex-shrink:0}
+/* period totals row */
+.gph{font-size:8px;color:var(--mu);padding:1px 3px;background:var(--sf2);border-top:1px solid var(--bd);border-left:1px solid var(--bd);text-align:center;font-family:'DM Mono',monospace}
+.gphl{position:sticky;left:0;z-index:2;background:var(--sf2);border-top:1px solid var(--bd);font-size:8px;color:var(--mu);padding:1px 7px;font-family:'DM Mono',monospace}
 /* toast */
 #toast{position:fixed;bottom:14px;right:14px;background:var(--sf2);border:1px solid var(--bd2);border-radius:var(--r);padding:7px 13px;font-size:11px;color:var(--tx);opacity:0;transform:translateY(6px);transition:all .2s;pointer-events:none;z-index:300;max-width:260px}
 #toast.show{opacity:1;transform:translateY(0)}
@@ -138,6 +149,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:9px
   <span>↩ Session restored — <span id="si"></span></span>
   <button class="btn" style="padding:2px 7px;font-size:10px" onclick="clearSess()">Clear</button>
 </div>
+<div id="stats-bar"></div>
 
 <header>
   <div class="logo">
@@ -217,12 +229,15 @@ function parse(rows){
       pStart=r[2]===''?null:+r[2], pEnd=r[3]===''?null:+r[3],
       courseNum=(r[4]||'').trim(), course=(r[5]||'').trim(),
       subject=(r[6]||'').trim(), deptId=(r[7]||'').trim(),
-      dept=(r[8]||'').trim(), teacher2=(r[9]||'').trim();
+      dept=(r[8]||'').trim(), teacher2=(r[9]||'').trim(),
+      seated=r[10]===undefined||r[10]===''?null:+r[10],
+      total=r[11]===undefined||r[11]===''?null:+r[11],
+      available=r[12]===undefined||r[12]===''?null:+r[12];
     if(!teacher||!course||pStart===null||isNaN(pStart)) return;
     const key=`${teacher}|${pStart}|${courseNum}`;
     if(!seen.has(key)){
       seen.add(key);
-      out.push({id:out.length,teacher,room,pStart,pEnd,courseNum,course,subject,deptId,dept,teacher2});
+      out.push({id:out.length,teacher,room,pStart,pEnd,courseNum,course,subject,deptId,dept,teacher2,seated,total,available});
     }
   });
   return out;
@@ -391,6 +406,44 @@ function sortedTeachers(teachers){
   });
 }
 
+/* ── STATS HELPERS ─────────────────────────────────── */
+function seatColor(seated,total){
+  if(!total)return '';
+  const pct=seated/total;
+  if(pct>=1)return 'full';
+  if(pct>=0.8)return 'warn';
+  return 'ok';
+}
+function aggSeats(tls){
+  let seated=0,total=0,available=0,n=0;
+  tls.forEach(t=>{if(t.seated!==null){seated+=t.seated||0;total+=t.total||0;available+=t.available||0;n++;}});
+  return {seated,total,available,n};
+}
+function renderStatsBar(visTiles){
+  const bar=document.getElementById('stats-bar');
+  if(!visTiles.length){bar.classList.remove('vis');return;}
+  const all=aggSeats(visTiles);
+  if(!all.n){bar.classList.remove('vis');return;}
+  bar.classList.add('vis');
+  const grades=[6,7,8];
+  let html=`<div class="sbi"><div class="sbl">Overall</div><div class="sbv"><span class="${seatColor(all.seated,all.total)}">${all.seated}/${all.total}</span> <span style="opacity:.5;font-size:8px">${all.available} open</span></div></div><div class="sb-sep"></div>`;
+  grades.forEach(g=>{
+    const gt=visTiles.filter(t=>courseGrade(t.course)===g);
+    const a=aggSeats(gt);if(!a.n)return;
+    html+=`<div class="sbi"><div class="sbl">Gr ${g}</div><div class="sbv"><span class="${seatColor(a.seated,a.total)}">${a.seated}/${a.total}</span></div></div>`;
+  });
+  if(filterD){
+    html+=`<div class="sb-sep"></div>`;
+    grades.forEach(g=>{
+      const gt=visTiles.filter(t=>t.deptId===filterD&&courseGrade(t.course)===g);
+      const a=aggSeats(gt);if(!a.n)return;
+      const dn=(D[filterD]||{}).nm||filterD;
+      html+=`<div class="sbi"><div class="sbl">${dn} · Gr ${g}</div><div class="sbv"><span class="${seatColor(a.seated,a.total)}">${a.seated}/${a.total}</span> <span style="opacity:.5;font-size:8px">${a.available} open</span></div></div>`;
+    });
+  }
+  bar.innerHTML=html;
+}
+
 /* ── RENDER ────────────────────────────────────────── */
 function sn(n){const p=n.split(',');return p.length<2?n:p[0].trim()+', '+p[1].trim()[0]+'.';}
 
@@ -426,8 +479,23 @@ function render(){
   const m=idx(visTiles), mv=movedSet();
   G.style.gridTemplateColumns=`148px 88px repeat(${PERIODS.length-1},minmax(70px,1fr))`;
 
+  renderStatsBar(visTiles);
+
   let h=`<div class="gh ghn">Teacher</div>`;
   PERIODS.forEach(p=>h+=`<div class="gh${p===FP?' ghf':''}">${PL[p]}</div>`);
+
+  // Period totals row (only when data has seat info)
+  const hasSeatData=visTiles.some(t=>t.seated!==null);
+  if(hasSeatData){
+    h+=`<div class="gphl">${filterD?(D[filterD]||{}).nm||'':'All'} seats/pd</div>`;
+    PERIODS.forEach(p=>{
+      if(p===FP){h+=`<div class="gph">—</div>`;return;}
+      const pdTiles=visTiles.filter(t=>t.pStart===p&&t.seated!==null&&(filterD?t.deptId===filterD:true));
+      const a=aggSeats(pdTiles);
+      if(!a.n){h+=`<div class="gph">—</div>`;return;}
+      h+=`<div class="gph"><span class="${seatColor(a.seated,a.total)}">${a.seated}/${a.total}</span></div>`;
+    });
+  }
 
   let prevGrade=null, prevDept=null;
   teachers.forEach(teacher=>{
@@ -464,10 +532,11 @@ function render(){
         const rm=t.room?`<span>${t.room}</span>`:'';
         const co=t.teacher2?`<span>+co</span>`:'';
         const fb=isF?`<span style="color:var(--fc)">⬡float</span>`:'';
+        const seatStr=t.seated!==null&&t.total!==null?`<span class="${seatColor(t.seated,t.total)}">${t.seated}/${t.total}</span>`:'';
         const sel=selIds.has(t.id)?' sel':'';
         const moved=mv.has(t.id)&&!isF?' mv':'';
-        const tip=`${t.course} · ${t.courseNum}\nRm ${t.room||'—'} · P${t.pStart}${t.pEnd!==t.pStart?'–'+t.pEnd:''}\n${t.dept}${t.teacher2?'\nCo-teacher: '+t.teacher2:''}`;
-        ch+=`<div class="tile${sel}${moved}" data-id="${t.id}" style="background:${d.bg};border-color:${d.bd};color:${d.tx}" draggable="true" title="${tip}"><span class="tn">${cn} <span style="font-weight:400;opacity:.55;font-size:8.5px">${t.courseNum}</span></span><span class="tm">${sp}${rm}${co}${fb}</span></div>`;
+        const tip=`${t.course} · ${t.courseNum}\nRm ${t.room||'—'} · P${t.pStart}${t.pEnd!==t.pStart?'–'+t.pEnd:''}\n${t.dept}${t.teacher2?'\nCo-teacher: '+t.teacher2:''}\nSeated: ${t.seated??'—'} / ${t.total??'—'} (${t.available??'—'} open)`;
+        ch+=`<div class="tile${sel}${moved}" data-id="${t.id}" style="background:${d.bg};border-color:${d.bd};color:${d.tx}" draggable="true" title="${tip}"><span class="tn">${cn} <span style="font-weight:400;opacity:.55;font-size:8.5px">${t.courseNum}</span></span><span class="tm">${seatStr}${sp}${rm}${co}${fb}</span></div>`;
       });
       h+=`<div class="gc${isF?' gcf':''}" data-dv="${isF?'dvf':'dv'}" data-t="${teacher}" data-p="${p}">${ch}</div>`;
     });
