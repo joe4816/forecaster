@@ -484,16 +484,30 @@ function render(){
   let h=`<div class="gh ghn">Teacher</div>`;
   PERIODS.forEach(p=>h+=`<div class="gh${p===FP?' ghf':''}">${PL[p]}</div>`);
 
-  // Period totals row (only when data has seat info)
+  // Multi-row period totals
   const hasSeatData=visTiles.some(t=>t.seated!==null);
   if(hasSeatData){
-    h+=`<div class="gphl">${filterD?(D[filterD]||{}).nm||'':'All'} seats/pd</div>`;
-    PERIODS.forEach(p=>{
-      if(p===FP){h+=`<div class="gph">—</div>`;return;}
-      const pdTiles=visTiles.filter(t=>t.pStart===p&&t.seated!==null&&(filterD?t.deptId===filterD:true));
-      const a=aggSeats(pdTiles);
-      if(!a.n){h+=`<div class="gph">—</div>`;return;}
-      h+=`<div class="gph"><span class="${seatColor(a.seated,a.total)}">${a.seated}/${a.total}</span></div>`;
+    const dn=filterD?(D[filterD]||{}).nm||filterD:null;
+    const rowDefs=[
+      {lbl:'Overall', fn:t=>true},
+      {lbl:'Gr 6',    fn:t=>courseGrade(t.course)===6},
+      {lbl:'Gr 7',    fn:t=>courseGrade(t.course)===7},
+      {lbl:'Gr 8',    fn:t=>courseGrade(t.course)===8},
+    ];
+    if(dn) rowDefs.push(
+      {lbl:dn,          fn:t=>t.deptId===filterD},
+      {lbl:`${dn} G6`,  fn:t=>t.deptId===filterD&&courseGrade(t.course)===6},
+      {lbl:`${dn} G7`,  fn:t=>t.deptId===filterD&&courseGrade(t.course)===7},
+      {lbl:`${dn} G8`,  fn:t=>t.deptId===filterD&&courseGrade(t.course)===8},
+    );
+    rowDefs.forEach(({lbl,fn})=>{
+      h+=`<div class="gphl">${lbl}</div>`;
+      PERIODS.forEach(p=>{
+        if(p===FP){h+=`<div class="gph">—</div>`;return;}
+        const pt=visTiles.filter(t=>t.seated!==null&&fn(t)&&typeof t.pStart==='number'&&typeof t.pEnd==='number'&&t.pStart<=p&&t.pEnd>=p);
+        const a=aggSeats(pt);
+        h+=a.n?`<div class="gph"><span class="${seatColor(a.seated,a.total)}">${a.seated}/${a.total}</span></div>`:`<div class="gph">—</div>`;
+      });
     });
   }
 
